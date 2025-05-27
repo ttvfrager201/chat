@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shared Chat</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #chat { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+    .msg { margin-bottom: 10px; }
+    .msg img { max-width: 200px; display: block; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <h2>📢 Public Chat (Shared via Google Sheets)</h2>
+  <div id="chat"></div>
+  <input id="user" placeholder="Your name"><br><br>
+  <input id="msg" placeholder="Type message or paste image URL">
+  <input type="file" id="imgInput" accept="image/*">
+  <button onclick="sendText()">Send</button>
+  <script>
+    const SHEET_URL = 'https://script.google.com/macros/s/AKfycbyFETgNNBJI27hRz8JV8GL4wAYDR51RAxeGX_VI1KY/dev';
+
+    async function fetchMessages() {
+      const res = await fetch(SHEET_URL);
+      const data = await res.json();
+      const chat = document.getElementById('chat');
+      chat.innerHTML = '';
+      data.forEach(entry => {
+        const div = document.createElement('div');
+        div.className = 'msg';
+        let content = `<strong>${entry.user}:</strong> `;
+        if (entry.type === 'image') {
+          content += `<img src="${entry.message}" alt="img"/>`;
+        } else {
+          content += entry.message;
+        }
+        div.innerHTML = content;
+        chat.appendChild(div);
+      });
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function sendText() {
+      const user = document.getElementById('user').value.trim();
+      const msg = document.getElementById('msg').value.trim();
+      const imgFile = document.getElementById('imgInput').files[0];
+
+      if (!user) return alert("Enter your name!");
+
+      if (imgFile) {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          await sendMsg(user, e.target.result, 'image');
+        };
+        reader.readAsDataURL(imgFile);
+      } else if (msg) {
+        const isImgUrl = msg.match(/\.(jpg|jpeg|png|gif)$/i);
+        await sendMsg(user, msg, isImgUrl ? 'image' : 'text');
+      }
+      document.getElementById('msg').value = '';
+      document.getElementById('imgInput').value = '';
+    }
+
+    async function sendMsg(user, message, type) {
+      await fetch(SHEET_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user, message, type })
+      });
+      fetchMessages();
+    }
+
+    fetchMessages();
+    setInterval(fetchMessages, 5000);
+  </script>
+</body>
+</html>
